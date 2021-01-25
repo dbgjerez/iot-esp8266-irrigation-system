@@ -2,6 +2,7 @@
 #include "ESP8266WiFi.h"
 #include <AsyncMqttClient.h>
 #include <string.h>
+#include <ArduinoJson.h>
 
 #define FC28_PIN A0
 #define DELAY 5000
@@ -15,21 +16,28 @@
 
 AsyncMqttClient mqttClient;
 
-String createJSON(String hum, unsigned long time){
-  String json = "{\"sensor\":\""+String(ESP.getChipId())+ "\", \"type\": \"FC-28\", \"value\": " + hum + ", \"time\": " + time + " }";
+String createJSON(int hum, unsigned long time){
+  StaticJsonDocument<128> doc;
+  doc[String("chip")]=String(ESP.getChipId());
+  JsonObject sensors_0 = doc["sensors"].createNestedObject();
+  sensors_0["sensor"] = "FC-28";
+  sensors_0["time"] = time;
+  sensors_0["humidity"] = hum;
+  String json;
+  serializeJson(doc, json);
   return json;
 }
 
-String readFC28(uint8_t pin){
+int readFC28(uint8_t pin){
    int humidity = analogRead(pin);
-   return String(humidity);
+   return humidity;
 }
 
 void onMqttConnect(bool sessionPresent) {
   Serial.println("MQTT connected");
 
   if(mqttClient.connected()){
-    String humidityFC28 = readFC28(FC28_PIN);
+    int humidityFC28 = readFC28(FC28_PIN);
     String json = createJSON(humidityFC28, millis());
     mqttClient.publish(TOPIC, 1, false, json.c_str());
   }
