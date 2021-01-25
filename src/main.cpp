@@ -16,7 +16,7 @@
 AsyncMqttClient mqttClient;
 
 String createJSON(String hum, unsigned long time){
-  String json = "{\"sensor\":\"1\", \"type\": \"FC-28\", \"value\": " + hum + ", \"time\": " + time + " }";
+  String json = "{\"sensor\":\""+String(ESP.getChipId())+ "\", \"type\": \"FC-28\", \"value\": " + hum + ", \"time\": " + time + " }";
   return json;
 }
 
