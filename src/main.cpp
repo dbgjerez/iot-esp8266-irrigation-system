@@ -9,23 +9,29 @@
 #define WIFI_PASS ""
 #define MQTT_HOST IPAddress(192, 168, 1, 12)
 #define MQTT_PORT 1883
+#define TOPIC "/test/one"
 // h, min, sec
 #define TIME 1 * 1 * 60 * 1e6
 
 AsyncMqttClient mqttClient;
 
+String createJSON(String hum, unsigned long time){
+  String json = "{\"sensor\":\"1\", \"type\": \"FC-28\", \"value\": " + hum + ", \"time\": " + time + " }";
+  return json;
+}
+
+String readFC28(uint8_t pin){
+   int humidity = analogRead(pin);
+   return String(humidity);
+}
+
 void onMqttConnect(bool sessionPresent) {
   Serial.println("MQTT connected");
 
-  int humidity = analogRead(FC28_PIN);
-  Serial.print("Sensor: ");
-  Serial.println(humidity);
-
   if(mqttClient.connected()){
-    String hum = String(humidity);
-    String json = "{\"sensor\":\"1\", \"type\": \"FC-28\", \"value\": " + hum + ", \"time\": " + millis() + " }";
-
-    mqttClient.publish("/test/one", 1, false, json.c_str());
+    String humidityFC28 = readFC28(FC28_PIN);
+    String json = createJSON(humidityFC28, millis());
+    mqttClient.publish(TOPIC, 1, false, json.c_str());
   }
 }
 
@@ -42,6 +48,7 @@ void setup() {
     delay(1000);
     Serial.println("Conectando al wifi...");
   }
+
   Serial.print("Conectado con IP: ");
   Serial.println(WiFi.localIP());
 
