@@ -3,6 +3,7 @@
 #include <AsyncMqttClient.h>
 #include <string.h>
 #include <ArduinoJson.h>
+#include <ESPDateTime.h>
 
 #define FC28_PIN A0
 #define DELAY 5000
@@ -11,8 +12,14 @@
 #define MQTT_HOST IPAddress(192, 168, 1, 12)
 #define MQTT_PORT 1883
 #define TOPIC "/test/one"
-// h, min, sec
-#define TIME 1 * 1 * 60 * 1e6
+#define NTP_TIMEZONE 0
+#define NTP_SERVER "europe.pool.ntp.org"
+// 60.000ms = 60s = 1'
+#define NTP_TIMEOUT 6e4
+// sec
+#define TIME 3600 * 1e6
+
+static unsigned long HUNDRED = 1000;
 
 AsyncMqttClient mqttClient;
 
@@ -38,27 +45,40 @@ void onMqttConnect(bool sessionPresent) {
 
   if(mqttClient.connected()){
     int humidityFC28 = readFC28(FC28_PIN);
-    String json = createJSON(humidityFC28, millis());
+    String json = createJSON(humidityFC28, DateTime.utcTime());
     mqttClient.publish(TOPIC, 1, false, json.c_str());
   }
 }
 
 void onMqttPublish(uint16_t packetId) {
   Serial.print("Publish acknowledged: " + packetId);
-  ESP.deepSleep(TIME);
+  unsigned long sleep = TIME-(millis()*HUNDRED);
+  Serial.println(sleep);
+  ESP.deepSleep(sleep);
+}
+
+void initTimer(const char* server, const unsigned int timeout, const int timezone ) {
+  DateTime.setTimeZone(timezone);
+  DateTime.setServer(server);
+  DateTime.begin(timeout);
+  if (!DateTime.isTimeValid()) {
+    Serial.println("Failed to get time from server.");
+  }else {
+    Serial.println("Fecha: " + DateTime.toUTCString());
+  }
 }
 
 void setup() {
   Serial.begin(9600);
-
   WiFi.begin(WIFI_SSID, WIFI_PASS);
   while (WiFi.status() != WL_CONNECTED) {
     delay(1000);
     Serial.println("Conectando al wifi...");
   }
-
   Serial.print("Conectado con IP: ");
   Serial.println(WiFi.localIP());
+
+  initTimer(NTP_SERVER, NTP_TIMEOUT, NTP_TIMEZONE);
 
   mqttClient.onConnect(onMqttConnect);
   mqttClient.onPublish(onMqttPublish);
