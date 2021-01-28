@@ -6,20 +6,21 @@
 #include <ESPDateTime.h>
 
 #define FC28_PIN A0
-#define DELAY 5000
+
 #define WIFI_SSID ""
 #define WIFI_PASS ""
+static const unsigned long WIFI_DELAY = 1000;
+// MQTT config
 #define MQTT_HOST IPAddress(192, 168, 1, 12)
 #define MQTT_PORT 1883
-#define TOPIC "/test/one"
-#define NTP_TIMEZONE 0
-#define NTP_SERVER "europe.pool.ntp.org"
-// 60.000ms = 60s = 1'
-#define NTP_TIMEOUT 6e4
-// sec
-#define TIME 3600 * 1e6
-
-static unsigned long HUNDRED = 1000;
+#define MQTT_TOPIC "/test/one"
+// NTP server config
+static const int NTP_TIMEZONE = 0;
+static const char* NTP_SERVER = "europe.pool.ntp.org";
+static const unsigned long NTP_TIMEOUT = 6e4;
+// data send interval config
+static const unsigned long SEND_DATA = 3600e6;
+static const unsigned long HUNDRED = 1000;
 
 AsyncMqttClient mqttClient;
 
@@ -46,13 +47,13 @@ void onMqttConnect(bool sessionPresent) {
   if(mqttClient.connected()){
     int humidityFC28 = readFC28(FC28_PIN);
     String json = createJSON(humidityFC28, DateTime.utcTime());
-    mqttClient.publish(TOPIC, 1, false, json.c_str());
+    mqttClient.publish(MQTT_TOPIC, 1, false, json.c_str());
   }
 }
 
 void onMqttPublish(uint16_t packetId) {
   Serial.print("Publish acknowledged: " + packetId);
-  unsigned long sleep = TIME-(millis()*HUNDRED);
+  unsigned long sleep = SEND_DATA-(millis()*HUNDRED);
   Serial.println(sleep);
   ESP.deepSleep(sleep);
 }
@@ -72,7 +73,7 @@ void setup() {
   Serial.begin(9600);
   WiFi.begin(WIFI_SSID, WIFI_PASS);
   while (WiFi.status() != WL_CONNECTED) {
-    delay(1000);
+    delay(WIFI_DELAY);
     Serial.println("Conectando al wifi...");
   }
   Serial.print("Conectado con IP: ");
