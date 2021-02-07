@@ -7,9 +7,7 @@
 
 #define FC28_PIN A0
 
-#define WIFI_SSID ""
-#define WIFI_PASS ""
-static const unsigned long WIFI_DELAY = 1000;
+static const unsigned long WIFI_DELAY = 5000;
 // MQTT config
 #define MQTT_HOST IPAddress(192, 168, 1, 12)
 #define MQTT_PORT 1883
