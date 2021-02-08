@@ -7,9 +7,10 @@
 
 #define FC28_PIN A0
 
-static const unsigned long WIFI_DELAY = 5000;
+static const unsigned long WAIT_DELAY = 5000;
+static const int MAX_RETRY = 5;
 // MQTT config
-#define MQTT_HOST IPAddress(192, 168, 1, 12)
+#define MQTT_HOST IPAddress(192, 168, 1, 112)
 #define MQTT_PORT 1883
 #define MQTT_TOPIC "/test/one"
 // NTP server config
@@ -49,40 +50,74 @@ void onMqttConnect(bool sessionPresent) {
   }
 }
 
-void onMqttPublish(uint16_t packetId) {
-  Serial.print("Publish acknowledged: " + packetId);
+void sleep() {
   unsigned long sleep = SEND_DATA-(millis()*HUNDRED);
+  Serial.print("Deep sleep: ");
   Serial.println(sleep);
   ESP.deepSleep(sleep);
 }
 
-void initTimer(const char* server, const unsigned int timeout, const int timezone ) {
+void onMqttPublish(uint16_t packetId) {
+  Serial.print("Publish acknowledged: " + packetId);
+  sleep();
+}
+
+void connectToNtp(const char* server, const unsigned int timeout, const int timezone ) {
   DateTime.setTimeZone(timezone);
   DateTime.setServer(server);
   DateTime.begin(timeout);
   if (!DateTime.isTimeValid()) {
-    Serial.println("Failed to get time from server.");
+    Serial.println("Failed to connect with NTP Server");
+    sleep();
   }else {
-    Serial.println("Fecha: " + DateTime.toUTCString());
+    Serial.println("Connected to NTP Server with date: " + DateTime.toUTCString());
+  }
+}
+void connectToWifi(){
+  WiFi.begin(WIFI_SSID, WIFI_PASS);
+    int i = 0;
+    while (WiFi.status() != WL_CONNECTED && i < MAX_RETRY) {
+      i++;
+      Serial.print(i);
+      Serial.println("- Wifi not connected...");
+      delay(WAIT_DELAY);
+    }
+    if(i==MAX_RETRY){
+      sleep();
+    }
+    Serial.print("Connected to Wifi with IP: ");
+    Serial.println(WiFi.localIP());
+}
+
+void connectToMqtt(){
+  mqttClient.onConnect(onMqttConnect);
+  mqttClient.onPublish(onMqttPublish);
+  mqttClient.setServer(MQTT_HOST, MQTT_PORT);
+  mqttClient.connect();
+
+  int i = 0;
+  while(!mqttClient.connected() && i<MAX_RETRY){
+    i++;
+    Serial.print(i);
+    Serial.println("- Mqtt not connected...");
+    delay(WAIT_DELAY);
+  }
+  if(i==MAX_RETRY){
+    Serial.println("Failed to connect with Mqtt Server");
+    sleep();
   }
 }
 
 void setup() {
   Serial.begin(9600);
-  WiFi.begin(WIFI_SSID, WIFI_PASS);
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(WIFI_DELAY);
-    Serial.println("Conectando al wifi...");
-  }
-  Serial.print("Conectado con IP: ");
-  Serial.println(WiFi.localIP());
+  
+  connectToWifi();
 
-  initTimer(NTP_SERVER, NTP_TIMEOUT, NTP_TIMEZONE);
+  connectToNtp(NTP_SERVER, NTP_TIMEOUT, NTP_TIMEZONE);
 
-  mqttClient.onConnect(onMqttConnect);
-  mqttClient.onPublish(onMqttPublish);
-  mqttClient.setServer(MQTT_HOST, MQTT_PORT);
-  mqttClient.connect();
+  connectToMqtt();
 }
 
-void loop() {}
+void loop() {
+  delay(WAIT_DELAY);
+}
